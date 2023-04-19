@@ -50,7 +50,7 @@ def parse_args():
     parser.add_argument(
         '--data_output_path',
         type=str,
-        default='/tmp/data_files/',
+        default='/data/mc_project/tmp/data_files',
         help='Where to store the data-related files such as shuffle index.')
     parser.add_argument(
         "--model_name_or_path",
