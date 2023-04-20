@@ -256,7 +256,7 @@ def main():
     optimizer_grouped_parameters = get_optimizer_grouped_parameters(
         model, args.weight_decay)
 
-    AdamOptimizer = DeepSpeedCPUAdam if args.offload else FusedAdam
+    AdamOptimizer = DeepSpeedCPUAdam
     optimizer = AdamOptimizer(optimizer_grouped_parameters,
                               lr=args.learning_rate,
                               betas=(0.9, 0.95))
