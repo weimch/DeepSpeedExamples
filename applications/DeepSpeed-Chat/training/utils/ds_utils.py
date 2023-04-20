@@ -17,14 +17,14 @@ def get_train_ds_config(offload,
     device = "cpu" if offload else "none"
     zero_opt_dict = {
         "stage": stage,
-        "offload_param": {
-            "device": "nvme",
-            "nvme_path": "/data/home/minchangwei/local_nvme",
-            "pin_memory": True,
-            "buffer_count": 5,
-            "buffer_size": 1e8,
-            "max_in_cpu": 1e9
-        },
+        # "offload_param": {
+        #     "device": "nvme",
+        #     "nvme_path": "/data/home/minchangwei/local_nvme",
+        #     "pin_memory": True,
+        #     "buffer_count": 5,
+        #     "buffer_size": 1e8,
+        #     "max_in_cpu": 1e9
+        # },
         "offload_optimizer": {
             "device": "nvme",
             "nvme_path": "/data/home/minchangwei/local_nvme",
