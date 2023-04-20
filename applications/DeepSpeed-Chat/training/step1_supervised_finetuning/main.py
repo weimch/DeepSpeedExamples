@@ -187,7 +187,7 @@ def main():
     ds_config[
         'train_batch_size'] = args.per_device_train_batch_size * torch.distributed.get_world_size(
         ) * args.gradient_accumulation_steps
-
+    print("view_ds_config->", ds_config)
     # If passed along, set the training seed now.
     set_random_seed(args.seed)
 
@@ -270,6 +270,7 @@ def main():
         num_training_steps=args.num_train_epochs * num_update_steps_per_epoch,
     )
 
+    torch.cuda.empty_cache()
     model, optimizer, _, lr_scheduler = deepspeed.initialize(
         model=model,
         optimizer=optimizer,
