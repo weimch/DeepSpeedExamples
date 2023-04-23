@@ -16,7 +16,7 @@ mkdir -p $OUTPUT
 deepspeed main.py \
    --data_path my_accepted_one_solution \
    --data_split 10,0,0 \
-   --model_name_or_path THUDM/chatglm-6b \
+   --model_name_or_path THUDM/chatglm-6b-int4 \
    --per_device_train_batch_size 1 \
    --per_device_eval_batch_size 1 \
    --max_seq_len 512 \
