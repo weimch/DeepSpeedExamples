@@ -3,6 +3,7 @@
 
 # DeepSpeed Team
 from datasets import load_dataset
+from datasets import Dataset
 from torch.utils.data import Subset
 import re
 
@@ -360,6 +361,41 @@ class Wangrui6ZhihuKOLDataset(PromptRawDataset):
         )
         return None
 
+class MyMkDataset(PromptRawDataset):
+    
+    def __init__(self, output_path, seed, local_rank):
+        super().__init__(output_path, seed, local_rank)
+        self.dataset_name = "my_accepted_one_solution"
+        self.dataset_name_clean = "my_accepted_one_solution"
+        self.raw_datasets_train = Dataset.from_json('/data/home/minchangwei/my_data/accepted_one_solution_train.json')
+        self.raw_datasets_eval = Dataset.from_json('/data/home/minchangwei/my_data/accepted_one_solution_eval.json')
+
+    def get_train_data(self):
+        return self.raw_datasets_train
+
+    def get_eval_data(self):
+        return self.raw_datasets_eval
+
+    def get_prompt(self, sample):
+        return " Human: " + sample['problem'] + " Assistant:"
+
+    def get_chosen(self, sample):
+        return " " + sample['answer']
+
+    def get_rejected(self, sample):
+        print(
+            f"Warning: dataset {self.dataset_name} does not include rejected response."
+        )
+        return None
+
+    def get_prompt_and_chosen(self, sample):
+        return " Human: " + sample['problem'] + " Assistant: " + sample['answer']
+
+    def get_prompt_and_rejected(self, sample):
+        print(
+            f"Warning: dataset {self.dataset_name} does not include rejected response."
+        )
+        return None
 
 # Chinese dataset
 class CohereMiraclzhqueries2212Dataset(PromptRawDataset):

@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 
 from transformers import (
+    AutoModel,
     AutoModelForCausalLM,
     AutoTokenizer,
     SchedulerType,
@@ -195,18 +196,19 @@ def main():
 
     torch.distributed.barrier()
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path,
-                                              fast_tokenizer=True)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, trust_remote_code=True)
     tokenizer.pad_token = tokenizer.eos_token
 
-    model = create_hf_model(AutoModelForCausalLM, args.model_name_or_path,
-                            tokenizer, ds_config)
+    # model = create_hf_model(AutoModelForCausalLM, args.model_name_or_path,
+    #                         tokenizer, ds_config)
 
-    if args.lora_dim > 0:
-        model = convert_linear_layer_to_lora(model, args.lora_module_name,
-                                             args.lora_dim)
-        if args.only_optimize_lora:
-            model = only_optimize_lora_parameters(model)
+    # if args.lora_dim > 0:
+    #     model = convert_linear_layer_to_lora(model, args.lora_module_name,
+    #                                          args.lora_dim)
+    #     if args.only_optimize_lora:
+    #         model = only_optimize_lora_parameters(model)
+
+    model = AutoModel.from_pretrained(args.model_name_or_path, trust_remote_code=True).half().cuda()
 
     # Prepare the data
     train_phase = 1
@@ -256,7 +258,8 @@ def main():
     optimizer_grouped_parameters = get_optimizer_grouped_parameters(
         model, args.weight_decay)
 
-    AdamOptimizer = DeepSpeedCPUAdam
+    # AdamOptimizer = DeepSpeedCPUAdam
+    AdamOptimizer = DeepSpeedCPUAdam if args.offload else FusedAdam
     optimizer = AdamOptimizer(optimizer_grouped_parameters,
                               lr=args.learning_rate,
                               betas=(0.9, 0.95))
