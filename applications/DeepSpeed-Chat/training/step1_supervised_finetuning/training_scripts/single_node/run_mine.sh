@@ -9,7 +9,7 @@ if [ "$OUTPUT" == "" ]; then
     OUTPUT=~/DeepSpeedExamples/applications/DeepSpeed-Chat/output/01-mine-actor-model
 fi
 if [ "$ZERO_STAGE" == "" ]; then
-    ZERO_STAGE=0
+    ZERO_STAGE=1
 fi
 mkdir -p $OUTPUT
 
