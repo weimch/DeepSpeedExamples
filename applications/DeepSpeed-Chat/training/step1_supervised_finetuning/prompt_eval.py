@@ -7,8 +7,7 @@ import logging
 import torch
 
 from transformers import (
-    AutoConfig,
-    AutoModelForCausalLM,
+    AutoModel,
     AutoTokenizer,
 )
 
@@ -69,27 +68,19 @@ def parse_args():
                         type=str,
                         default="English",
                         choices=["English", "Chinese", "Japanese"])
-
+    parser.add_argument("--problem_path",
+                        type=str,
+                        default="/data/home/minchangwei/my_problem/problem_list")
     args = parser.parse_args()
 
     return args
 
 
-def get_model(config, model_path, tokenizer):
-
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        from_tf=bool(".ckpt" in model_path),
-        config=config,
-    )
+def config_model(model, tokenizer):
     model.resize_token_embeddings(len(tokenizer))
-
-    # prepare the tokenizer and model config
     tokenizer.pad_token = tokenizer.eos_token
     model.config.end_token_id = tokenizer.eos_token_id
     model.config.pad_token_id = model.config.eos_token_id
-
-    return model
 
 
 def generate(model,
@@ -141,10 +132,10 @@ def print_utils(gen_output):
         print()
 
 
-def prompt_eval(args, model_baseline, model_fintuned, tokenizer, device,
+def prompt_eval(args, model_baseline, model_fintuned, tokenizer, baseline_device, fintuned_device,
                 prompts):
     for prompt in prompts:
-        inputs = tokenizer(prompt, return_tensors="pt").to(device)
+        inputs = tokenizer(prompt, return_tensors="pt").to(baseline_device)
         print("==========Baseline: Greedy=========")
         r_base = generate(model_baseline,
                           tokenizer,
@@ -154,6 +145,7 @@ def prompt_eval(args, model_baseline, model_fintuned, tokenizer, device,
                           max_new_tokens=args.max_new_tokens)
         print_utils(r_base)
         print("==========finetune: Greedy=========")
+        inputs = tokenizer(prompt, return_tensors="pt").to(fintuned_device)
         r_finetune_g = generate(model_fintuned,
                                 tokenizer,
                                 inputs,
@@ -207,51 +199,29 @@ def prompt_eval(args, model_baseline, model_fintuned, tokenizer, device,
 def main():
     args = parse_args()
 
-    device = torch.device("cuda:0")
-    config = AutoConfig.from_pretrained(args.model_name_or_path_baseline)
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path_baseline,
-                                              fast_tokenizer=True)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path_baseline, trust_remote_code=True)
+    tokenizer.pad_token = tokenizer.eos_token
 
-    model_baseline = get_model(config, args.model_name_or_path_baseline,
-                               tokenizer)
-    model_fintuned = get_model(config, args.model_name_or_path_finetune,
-                               tokenizer)
-
-    model_baseline.to(device)
-    model_fintuned.to(device)
-
-    # One observation: if the prompt ends with a space " ", there is a high chance that
-    # the original model (without finetuning) will stuck and produce no response.
-    # Finetuned models have less such issue. Thus following prompts all end with ":"
-    # to make it a more meaningful comparison.
-    if args.language == "English":
-        prompts = [
-            "Human: Please tell me about Microsoft in a few sentence? Assistant:",
-            "Human: Explain the moon landing to a 6 year old in a few sentences. Assistant:",
-            "Human: Write a short poem about a wise frog. Assistant:",
-            "Human: Who was president of the United States in 1955? Assistant:",
-            "Human: How does a telescope work? Assistant:",
-            "Human: Why do birds migrate south for the winter? Assistant:"
-        ]
-    elif args.language == "Chinese":
-        prompts = [
-            "Human: 请用几句话介绍一下微软? Assistant:",
-            "Human: 用几句话向6岁的孩子解释登月。 Assistant:",
-            "Human: 写一首关于一只聪明的青蛙的短诗。 Assistant:",
-            "Human: 谁是1955年的美国总统? Assistant:", "Human: 望远镜是如何工作的? Assistant:",
-            "Human: 鸟类为什么要南迁过冬? Assistant:"
-        ]
-    elif args.language == "Japanese":
-        prompts = [
-            "Human: マイクロソフトについて簡単に教えてください。 Assistant:",
-            "Human: 6歳児に月面着陸を短い文で説明する。 Assistant:",
-            "Human: 賢いカエルについて短い詩を書いてください。 Assistant:",
-            "Human: 1955年のアメリカ合衆国大統領は誰? Assistant:",
-            "Human: 望遠鏡はどのように機能しますか? Assistant:",
-            "Human: 鳥が冬に南に移動するのはなぜですか? Assistant:"
-        ]
-
-    prompt_eval(args, model_baseline, model_fintuned, tokenizer, device,
+    # 加载对比模型
+    model_baseline = AutoModel.from_pretrained(args.model_name_or_path_baseline, trust_remote_code=True).half().cuda(3)
+    config_model(model_baseline, tokenizer)
+    baseline_device = torch.device("cuda:3")
+    model_baseline.to(baseline_device)
+    # 加载训练模型
+    model_fintuned = AutoModel.from_pretrained(args.model_name_or_path_baseline, trust_remote_code=True).half().cuda()
+    fintuned_device = torch.device("cuda:0")
+    model_fintuned.load_state_dict(torch.load(args.model_name_or_path_finetune))
+    torch.cuda.empty_cache()
+    config_model(model_fintuned, tokenizer)
+    model_fintuned.to(fintuned_device)
+    # 构造输入数据集
+    prompts = []
+    with open(args.problem_path) as f:
+        data = f.readlines()
+        for line in data:
+            prompts.append("Human: {} Assistant:".format(line.strip()))
+    # 对比验证数据集
+    prompt_eval(args, model_baseline, model_fintuned, tokenizer, baseline_device, fintuned_device,
                 prompts)
 
 
